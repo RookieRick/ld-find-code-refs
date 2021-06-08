@@ -62,7 +62,7 @@ func generateAlias(a options.Alias, flag, dir string, allFileContents map[string
 		fileContents := []byte{}
 		for _, path := range a.Paths {
 			absGlob := filepath.Join(dir, path)
-			matches, err := filepath.Glob(absGlob)
+			matches, err := filepathx.Glob(absGlob)
 			if err != nil {
 				return nil, fmt.Errorf("could not process path glob '%s'", absGlob)
 			}
