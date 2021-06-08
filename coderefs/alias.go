@@ -16,6 +16,7 @@ import (
 	"github.com/launchdarkly/ld-find-code-refs/internal/helpers"
 	"github.com/launchdarkly/ld-find-code-refs/internal/validation"
 	"github.com/launchdarkly/ld-find-code-refs/options"
+	"github.com/yargevad/filepathx"
 )
 
 // GenerateAliases returns a map of flag keys to aliases based on config.
@@ -61,7 +62,7 @@ func generateAlias(a options.Alias, flag, dir string, allFileContents map[string
 		fileContents := []byte{}
 		for _, path := range a.Paths {
 			absGlob := filepath.Join(dir, path)
-			matches, err := filepath.Glob(absGlob)
+			matches, err := filepathx.Glob(absGlob)
 			if err != nil {
 				return nil, fmt.Errorf("could not process path glob '%s'", absGlob)
 			}
@@ -128,7 +129,7 @@ func processFileContent(aliases []options.Alias, dir string) (map[string][]byte,
 		paths := []string{}
 		for _, glob := range a.Paths {
 			absGlob := filepath.Join(dir, glob)
-			matches, err := filepath.Glob(absGlob)
+			matches, err := filepathx.Glob(absGlob)
 			if err != nil {
 				return nil, fmt.Errorf("filepattern '%s': could not process path glob '%s'", aliasId, absGlob)
 			}
