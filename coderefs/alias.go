@@ -42,6 +42,22 @@ func GenerateAliases(flags []string, aliases []options.Alias, dir string) (map[s
 	return ret, nil
 }
 
+func globToAbsolutePaths(basepath string, pattern string) ([]string, error) {
+	fsys := os.DirFS(basepath)
+
+	matches, err := doublestar.Glob(fsys, pattern)
+	if err != nil {
+		return nil, fmt.Errorf("could not process path glob '%s'", filepath.Join(basepath, pattern))
+	}
+
+	updatedMatches := matches[:0]
+	for _, match := range matches {
+		updatedMatches = append(updatedMatches, strings.Join([]string{basepath, match}, "/"))
+	}
+
+	return updatedMatches, nil
+}
+
 func generateAlias(a options.Alias, flag, dir string, allFileContents map[string][]byte) ([]string, error) {
 	ret := []string{}
 	switch a.Type.Canonical() {
@@ -63,14 +79,9 @@ func generateAlias(a options.Alias, flag, dir string, allFileContents map[string
 		// Concatenate the contents of all files into a single byte array to be matched by specified patterns
 		fileContents := []byte{}
 		for _, path := range a.Paths {
-			absGlob := filepath.Join(dir, path)
-			var basepath string
-			var pattern string
-			basepath, pattern = doublestar.SplitPattern(absGlob)
-			fsys := os.DirFS(basepath)
-			matches, err := doublestar.Glob(fsys, pattern)
+			matches, err := globToAbsolutePaths(dir, path)
 			if err != nil {
-				return nil, fmt.Errorf("could not process path glob '%s'", absGlob)
+				return nil, fmt.Errorf("could not process path glob '%s'", filepath.Join(dir, path))
 			}
 			for _, match := range matches {
 				pathFileContents := allFileContents[match]
@@ -134,21 +145,12 @@ func processFileContent(aliases []options.Alias, dir string) (map[string][]byte,
 
 		paths := []string{}
 		for _, glob := range a.Paths {
-			absGlob := filepath.Join(dir, glob)
-			var basepath string
-			var pattern string
-			basepath, pattern = doublestar.SplitPattern(absGlob)
-			fsys := os.DirFS(basepath)
-			matches, err := doublestar.Glob(fsys, pattern)
+			matches, err := globToAbsolutePaths(dir, glob)
 			if err != nil {
-				return nil, fmt.Errorf("filepattern '%s': could not process path glob '%s'", aliasId, absGlob)
-			}
-			updatedMatches := matches[:0]
-			for _, match := range matches {
-				updatedMatches = append(updatedMatches, strings.Join([]string{basepath, match}, "/"))
+				return nil, fmt.Errorf("filepattern '%s': could not process path glob '%s'", aliasId, filepath.Join(dir, glob))
 			}
 
-			paths = append(paths, updatedMatches...)
+			paths = append(paths, matches...)
 		}
 		paths = helpers.Dedupe(paths)
 
