@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
+	"os"
 	"os/exec"
 	"path/filepath"
 	"regexp"
@@ -16,7 +17,8 @@ import (
 	"github.com/launchdarkly/ld-find-code-refs/internal/helpers"
 	"github.com/launchdarkly/ld-find-code-refs/internal/validation"
 	"github.com/launchdarkly/ld-find-code-refs/options"
-	"github.com/yargevad/filepathx"
+
+	"github.com/bmatcuk/doublestar/v4"
 )
 
 // GenerateAliases returns a map of flag keys to aliases based on config.
@@ -62,7 +64,11 @@ func generateAlias(a options.Alias, flag, dir string, allFileContents map[string
 		fileContents := []byte{}
 		for _, path := range a.Paths {
 			absGlob := filepath.Join(dir, path)
-			matches, err := filepathx.Glob(absGlob)
+			var basepath string
+			var pattern string
+			basepath, pattern = doublestar.SplitPattern(absGlob)
+			fsys := os.DirFS(basepath)
+			matches, err := doublestar.Glob(fsys, pattern)
 			if err != nil {
 				return nil, fmt.Errorf("could not process path glob '%s'", absGlob)
 			}
@@ -129,11 +135,20 @@ func processFileContent(aliases []options.Alias, dir string) (map[string][]byte,
 		paths := []string{}
 		for _, glob := range a.Paths {
 			absGlob := filepath.Join(dir, glob)
-			matches, err := filepathx.Glob(absGlob)
+			var basepath string
+			var pattern string
+			basepath, pattern = doublestar.SplitPattern(absGlob)
+			fsys := os.DirFS(basepath)
+			matches, err := doublestar.Glob(fsys, pattern)
 			if err != nil {
 				return nil, fmt.Errorf("filepattern '%s': could not process path glob '%s'", aliasId, absGlob)
 			}
-			paths = append(paths, matches...)
+			updatedMatches := matches[:0]
+			for _, match := range matches {
+				updatedMatches = append(updatedMatches, strings.Join([]string{basepath, match}, "/"))
+			}
+
+			paths = append(paths, updatedMatches...)
 		}
 		paths = helpers.Dedupe(paths)
 
